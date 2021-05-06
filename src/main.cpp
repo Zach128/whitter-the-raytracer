@@ -19,7 +19,7 @@ bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphe
         float dist_i;
 
         // If the sphere is hit, record it.
-        if (spheres[i].ray_intersect(orig, dir, dist_i)) {
+        if (spheres[i].ray_intersect(orig, dir, dist_i) && dist_i < spheres_dist) {
             spheres_dist = dist_i;
             hit = orig + dir * dist_i;
             N = (hit - spheres[i].center).normalize();
@@ -43,13 +43,22 @@ Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &s
     // Calculate diffuse lighting
     for (size_t i = 0; i < lights.size(); i++) {
         Vec3f light_dir = (lights[i].position - point).normalize();
+        float light_distance = (lights[i].position - point).norm();
+        
+        Vec3f shadow_orig = light_dir * N < 0 ? point - N * 1e-3 : point + N * 1e-3; // Offset the point to ensure it doesn't accidentally hit the same sphere.
+        Vec3f shadow_pt, shadow_N;
+        Material tmpmaterial;
+
+        // Check if a ray from this point to the current light is obscured by another object. If so, skip this light.
+        if (scene_intersect(shadow_orig, light_dir, spheres, shadow_pt, shadow_N, tmpmaterial) && (shadow_pt - shadow_orig).norm() < light_distance)
+            continue;
+
         diffuse_light_intensity += lights[i].intensity * std::max(0.f, light_dir * N);
 
         specular_light_intensity += powf(std::max(0.f, reflect(light_dir, N) * dir), material.specular_exponent) * lights[i].intensity;
     }
 
-    // Calculate final pixel color.
-    // Diffuse color.
+    // Calculate final pixel color by combining diffuse and specular.
     return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + Vec3f(1., 1., 1.) * specular_light_intensity * material.albedo[1];
 }
 
