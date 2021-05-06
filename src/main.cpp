@@ -7,6 +7,11 @@
 #include "sphere.h"
 #include "light.h"
 
+#define MAX_REFLECTION_DEPTH 4
+#define MAX_DISTANCE 1000
+#define PPM_WIDTH 1064
+#define PPM_HEIGHT 768
+
 Vec3f reflect(const Vec3f &I, const Vec3f &N) {
     return I - N * 2.f * (I * N);
 }
@@ -28,17 +33,23 @@ bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphe
     }
 
     // If the sphere is closer than the max draw distance, return true.
-    return spheres_dist < 1000;
+    return spheres_dist < MAX_DISTANCE;
 }
 
-Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &spheres, const std::vector<Light> &lights) {
+Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &spheres, const std::vector<Light> &lights, size_t depth = 0) {
     Vec3f point, N;
     Material material;
     float diffuse_light_intensity = 0, specular_light_intensity = 0;
 
-    if (!scene_intersect(orig, dir, spheres, point, N, material)) {
+    // Check this ray isn't 5 or more reflections deep into being cast.
+    if (depth > MAX_REFLECTION_DEPTH || !scene_intersect(orig, dir, spheres, point, N, material)) {
         return Vec3f(0.2, 0.7, 0.8); // Background color.
     }
+
+    // Calculate a reflected ray, and get the color from casting it.
+    Vec3f reflect_dir = reflect(dir, N).normalize();
+    Vec3f reflect_orig = reflect_dir * N < 0 ? point - N * 1e-3 : point + N * 1e-3;
+    Vec3f reflect_color = cast_ray(reflect_orig, reflect_dir, spheres, lights, depth + 1);
 
     // Calculate diffuse lighting
     for (size_t i = 0; i < lights.size(); i++) {
@@ -58,14 +69,17 @@ Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &s
         specular_light_intensity += powf(std::max(0.f, reflect(light_dir, N) * dir), material.specular_exponent) * lights[i].intensity;
     }
 
-    // Calculate final pixel color by combining diffuse and specular.
-    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + Vec3f(1., 1., 1.) * specular_light_intensity * material.albedo[1];
+    // Calculate final pixel color.
+    // Diffuse shading
+    // Specular highlights
+    // Reflections
+    return material.diffuse_color * diffuse_light_intensity * material.albedo[0] + Vec3f(1., 1., 1.) * specular_light_intensity * material.albedo[1] + reflect_color * material.albedo[2];
 }
 
 void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights) {
     const int fov = M_PI/2.;
-    const int width = 1064;
-    const int height = 768;
+    const int width = PPM_WIDTH;
+    const int height = PPM_HEIGHT;
     std::vector<Vec3f> framebuffer(width * height);
 
     // Render each pixel.
@@ -101,14 +115,15 @@ void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights
 }
 
 int main() {
-    Material ivory(Vec2f(0.6, 0.3), Vec3f(0.4, 0.4, 0.3), 50.);
-    Material red_rubber(Vec2f(0.9, 0.1), Vec3f(0.3, 0.1, 0.1), 10.);
+    Material ivory(Vec3f(0.6, 0.3, 0.1), Vec3f(0.4, 0.4, 0.3), 50.);
+    Material red_rubber(Vec3f(0.9, 0.1, 0.0), Vec3f(0.3, 0.1, 0.1), 10.);
+    Material mirror(Vec3f(0.0, 10.0, 0.8), Vec3f(1.0, 1.0, 1.0), 1425.);
     
     std::vector<Sphere> spheres;
     spheres.push_back(Sphere(Vec3f(-3, 0, -16), 2, ivory));
-    spheres.push_back(Sphere(Vec3f(-1.0, -1.5, -12), 2, red_rubber));
+    spheres.push_back(Sphere(Vec3f(-1.0, -1.5, -12), 2, mirror));
     spheres.push_back(Sphere(Vec3f( 1.5, -0.5, -18), 3, red_rubber));
-    spheres.push_back(Sphere(Vec3f( 7, 5, -18), 4, ivory));
+    spheres.push_back(Sphere(Vec3f( 7, 5, -18), 4, mirror));
 
     std::vector<Light> lights;
     lights.push_back(Light(Vec3f(-20, 20, 20), 1.5));
