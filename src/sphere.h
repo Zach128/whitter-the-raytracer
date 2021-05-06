@@ -1,12 +1,13 @@
-#ifndef __SPHERE_H__
-#define __SPHERE_H__
+#pragma once
 #include "geometry.h"
+#include "material.h"
 
 struct Sphere {
     Vec3f center;
     float radius;
+    Material material;
 
-    Sphere(const Vec3f &c, const float &r) : center(c), radius(r) {}
+    Sphere(const Vec3f &c, const float &r, const Material &m) : center(c), radius(r), material(m) {}
 
     /*
      * Tests whether a given ray from orig to dest intersects with this sphere.
@@ -29,5 +30,3 @@ struct Sphere {
         return true;
     }
 };
-
-#endif //__SPHERE_H__
