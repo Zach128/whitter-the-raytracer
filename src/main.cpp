@@ -16,23 +16,15 @@ Vec3f reflect(const Vec3f &I, const Vec3f &N) {
     return I - N * 2.f * (I * N);
 }
 
-Vec3f refract(const Vec3f &I, const Vec3f &N, const float &refractive_index) {
+Vec3f refract(const Vec3f &I, const Vec3f &N, const float eta_t, const float eta_i = 1.f) {
     //Snell's law
     float cosi = -std::max(-1.f, std::min(1.f, I*N));
-    float etai = 1, etat = refractive_index;
-    Vec3f n = N;
+    if (cosi < 0) return refract(I, -N, eta_i, eta_t); // If the ray is coming from inside the object, swap the order of the media being passed through (such as from the media to air or vice versa).
 
-    // Ensure the ray is outside the object, swapping the indices and inverting the normal if it is inside the object.
-    if (cosi < 0) {
-        cosi = -cosi;
-        std::swap(etai, etat);
-        n = -N;
-    }
-
-    float eta = etai / etat;
+    float eta = eta_i / eta_t;
     float k = 1 - eta * eta * (1 - cosi * cosi);
 
-    return k < 0 ? Vec3f(1, 0, 0) : I * eta + n * (eta * cosi - sqrtf(k));
+    return k < 0 ? Vec3f(1, 0, 0) : I * eta + N * (eta * cosi - sqrtf(k));
 }
 
 bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &spheres, Vec3f &hit, Vec3f &N, Material &material) {
@@ -110,11 +102,11 @@ void render(const std::vector<Sphere> &spheres, const std::vector<Light> &lights
     for (size_t j = 0; j < height; j++) {
         for (size_t i = 0; i < width; i++) {
             // Determine direction of ray according to pixel location and fov.
-            float x = (2 * (i + 0.5) / (float) width - 1) * tan(fov/2.) * width / (float) height;
-            float y = -(2 * (j + 0.5) / (float) height - 1) * tan(fov/2.);
-            Vec3f dir = Vec3f(x, y, -1).normalize();
+            float dir_x = (i + 0.5) - width / 2.;
+            float dir_y = -(j + 0.5) + height / 2.;
+            float dir_z = -height / (2. * tan(fov / 2.));
 
-            framebuffer[i + j * width] = cast_ray(Vec3f(0, 0, 0), dir, spheres, lights);
+            framebuffer[i + j * width] = cast_ray(Vec3f(0, 0, 0), Vec3f(dir_x, dir_y, dir_z).normalize(), spheres, lights);
         }
     }
 

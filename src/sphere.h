@@ -7,7 +7,7 @@ struct Sphere {
     float radius;
     Material material;
 
-    Sphere(const Vec3f &c, const float &r, const Material &m) : center(c), radius(r), material(m) {}
+    Sphere(const Vec3f &c, const float r, const Material &m) : center(c), radius(r), material(m) {}
 
     /*
      * Tests whether a given ray from orig to dest intersects with this sphere.
