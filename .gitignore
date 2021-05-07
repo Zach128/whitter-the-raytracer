@@ -31,6 +31,9 @@
 *.out
 *.app
 
+# Submodules
+lib/stb/
+
 # CMake
 CMakeFiles
 cmake_install.cmake
