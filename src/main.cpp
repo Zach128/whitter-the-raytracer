@@ -29,8 +29,9 @@ Vec3f refract(const Vec3f &I, const Vec3f &N, const float eta_t, const float eta
 
 bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &spheres, Vec3f &hit, Vec3f &N, Material &material) {
     float spheres_dist = std::numeric_limits<float>::max();
+    float checkerboard_dist = std::numeric_limits<float>::max();
 
-    // Iterate over each sphere.
+    // Perform testing on each sphere.
     for (size_t i = 0; i < spheres.size(); i++) {
         float dist_i;
 
@@ -43,8 +44,25 @@ bool scene_intersect(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphe
         }
     }
 
+    // Perform testing on the checkboard.
+    if (fabs(dir.y) > 1e-3) {
+        float d = -(orig.y + 4) / dir.y;
+        Vec3f pt = orig + dir * d;
+
+        // Check if we hit the checkerboard.
+        if (d > 0 && fabs(pt.x) < 10 && pt.z < -10 && pt.z > -30 && d < spheres_dist) {
+            checkerboard_dist = d;
+            hit = pt;
+            N = Vec3f(0, 1, 0);
+
+            // Choose a checkerboard pattern.
+            material.diffuse_color = (int(.5 * hit.x + 1000) + int(.5 * hit.z)) & 1 ? Vec3f(1, 1, 1) : Vec3f(1, .7, .3);
+            material.diffuse_color = material.diffuse_color * .3;
+        }
+    }
+
     // If the sphere is closer than the max draw distance, return true.
-    return spheres_dist < MAX_DISTANCE;
+    return std::min(spheres_dist, checkerboard_dist) < MAX_DISTANCE;
 }
 
 Vec3f cast_ray(const Vec3f &orig, const Vec3f &dir, const std::vector<Sphere> &spheres, const std::vector<Light> &lights, size_t depth = 0) {
